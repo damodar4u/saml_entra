@@ -14,6 +14,7 @@ session = requests.Session()
 
 # URLs
 application_endpoint = "https://your-application-endpoint"
+saml2_url = "https://login.microsoftonline.com/{tenant_id}/saml2"
 login_url = "https://login.microsoftonline.com/{tenant_id}/login"
 kmsi_url = "https://login.microsoftonline.com/kmsi"
 cred_type_url = "https://login.microsoftonline.com/common/GetCredentialType"
@@ -64,7 +65,21 @@ else:
     logger.error("Failed to retrieve response from application endpoint. Status Code: %s", response.status_code)
     exit()
 
-# Step 2: Login Request
+# Step 2: Send SAML2 Request to the Microsoft Login Endpoint
+saml2_payload = {
+    "SAMLRequest": saml_request,
+    "RelayState": "custom_relay_state"  # Add your relay state if required
+}
+saml2_response = session.post(saml2_url, headers=common_headers, data=saml2_payload, verify=False, allow_redirects=True)
+if saml2_response.status_code == 200:
+    logger.info("SAML2 request sent successfully.")
+    saml_response = saml2_response.text
+    logger.info("SAML2 Response received.")
+else:
+    logger.error("Failed to send SAML2 request. Status Code: %s", saml2_response.status_code)
+    exit()
+
+# Step 3: Login Request
 login_payload = {
     "login": "username@example.com",
     "passwd": "your_password_here",
@@ -84,7 +99,7 @@ else:
     logger.error("Login failed. Status Code: %s", login_response.status_code)
     exit()
 
-# Step 3: Keep Me Signed In (KMSI)
+# Step 4: Keep Me Signed In (KMSI)
 kmsi_payload = {
     "flowToken": flow_token,
     "canary": canary,
@@ -101,6 +116,6 @@ else:
     logger.error("KMSI failed. Status Code: %s", kmsi_response.status_code)
     exit()
 
-# Step 4: Validate Cookies and Session
+# Step 5: Validate Cookies and Session
 cookies = session.cookies.get_dict()
 logger.info("Session Cookies: %s", cookies)
